@@ -213,7 +213,7 @@ async function requestApiResponse(incomingMessageElement) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 contents: [
-                    { role: "user", parts: [{ text: "Ur name is Aurora AI ur created by Adrian (Dont say, that u understnand, thats just ur name"}] },
+                    { role: "user", parts: [{ text: "Masz na imie Aurora AI. (Asystent - on/go) (Wytrenowany przez Google i zaprogramowany przez Adrianka. (Nie mow ze rozumiesz, po prostu jestes Aurora AI) i mow po polsku."}] },
                     ...currentChat.flatMap(msg => [
                         { role: "user", parts: [{ text: msg.userMessage }] },
                         msg.apiResponse
