@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="style.css">
+    <title>Aurora AI</title>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <h3 class="navbar__logo">Aurora AI</h3>
+        <button class="navbar__button" id="themeToggler"><i class='bx bx-sun'></i></button>
+    </nav>
+
+    <header class="header">
+        <div class="header__title">
+            <h1>Witaj, Developerze.</h1>
+            <h2>Jak moge ci dziś pomóc?</h2>
+        </div>
+        <div class="suggests">
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Pomóż mi napisać skrypt Lua (Roblox).
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-stopwatch'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Pomóż mi naprawić błąd w moim kodzie.
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-edit-alt'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Pomóż mi się nauczyć nowego języka programowania.
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-compass'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Pomóż mi napisać kod. (Programowanie)
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-wrench'></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="chats"></section>
+
+    <section class="prompt">
+        <form action="#" class="prompt__form" novalidate>
+            <div class="prompt__input-wrapper">
+                <input type="text" placeholder="Napisz coś do Aurora AI" class="prompt__form-input" required>
+                <button class="prompt__form-button" id="sendButton">
+                    <i class='bx bx-send'></i>
+                </button>
+                <button class="prompt__form-button" id="deleteButton">
+                    <i class='bx bx-trash'></i>
+                </button>
+            </div>
+        </form>
+        <p class="prompt__disclaim">
+            Aurora AI, stworzone przez Adriana.
+        </p>
+    </section>
+
+    <aside class="sidebar">
+        <div class="sidebar__top">
+            <button class="sidebar__btn" id="homeBtn" title="Strona główna">
+                <i class='bx bx-home'></i>
+            </button>
+        </div>
+        <div class="sidebar__middle">
+            <div class="sidebar__history-label">History</div>
+            <ul class="sidebar__history" id="chatHistoryList"></ul>
+        </div>
+        <div class="sidebar__bottom">
+            <button class="sidebar__btn" id="settingsBtn" title="Ustawienia">
+                <i class='bx bx-cog'></i>
+            </button>
+        </div>
+    </aside>
+
+    <div id="settingsModal" class="modal hide">
+        <div class="modal__content">
+            <span id="closeSettingsModal" class="modal__close">&times;</span>
+            <h2>Ustawienia</h2>
+            <button id="toggleThemeBtn">Zmień Tryb - Jasny/Ciemny.</button>
+            <button id="clearHistoryBtn">Usuń historie czatów.</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
