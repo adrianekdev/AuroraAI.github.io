@@ -202,8 +202,8 @@ function displayLoadingAnimation() {
 }
 
 // --- Fetch API response based on user input ---
-const GOOGLE_API_KEY = "AIzaSyCRnw9H2PE_HrXyN4yAgL_DuKCVdj6d4kA";
-const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+const GOOGLE_API_KEY = "AIzaSyCqS3btZWOK26eeDMKD-eVUg9Sy5p4Ph8s";
+const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent?key=${GOOGLE_API_KEY}`;
 
 async function requestApiResponse(incomingMessageElement) {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
@@ -213,7 +213,7 @@ async function requestApiResponse(incomingMessageElement) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 contents: [
-                    { role: "user", parts: [{ text: "Ur name is Aurora AI (He/him) trained by Google, and programmed by Adrian"}] },
+                    { role: "user", parts: [{ text: "Masz na imie Aurora AI. (Asystent - on/go) (Wytrenowany przez Google i zaprogramowany przez Adrianka. (Nie mow ze rozumiesz, po prostu jestes Aurora AI) i mow po polsku."}] },
                     ...currentChat.flatMap(msg => [
                         { role: "user", parts: [{ text: msg.userMessage }] },
                         msg.apiResponse
