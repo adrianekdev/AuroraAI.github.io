@@ -64,7 +64,7 @@ function renderCurrentChat() {
             const parsedApiResponse = marked.parse(responseText);
             const responseHtml = `
                 <div class="message__content">
-                    <img class="message__avatar" src="assets/gemini.svg" alt="Gemini avatar">
+                    <img class="message__avatar" src="/gemini.svg" alt="Gemini avatar">
                     <p class="message__text"></p>
                     <div class="message__loading-indicator hide">
                         <div class="message__loading-bar"></div>
@@ -186,7 +186,7 @@ function handleOutgoingMessage() {
 function displayLoadingAnimation() {
     const loadingHtml = `
         <div class="message__content">
-            <img class="message__avatar" src="assets/gemini.svg" alt="Gemini avatar">
+            <img class="message__avatar" src="/gemini.svg" alt="Gemini avatar">
             <p class="message__text"></p>
             <div class="message__loading-indicator">
                 <div class="message__loading-bar"></div>
@@ -213,7 +213,7 @@ async function requestApiResponse(incomingMessageElement) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 contents: [
-                    { role: "user", parts: [{ text: "Masz na imie Aurora AI. (Asystent - on/go) (Wytrenowany przez Google i zaprogramowany przez Adrianka."}] },
+                    { role: "user", parts: [{ text: "Ur name is Aurora AI (He/him) trained by Google, and programmed by Adrian"}] },
                     ...currentChat.flatMap(msg => [
                         { role: "user", parts: [{ text: msg.userMessage }] },
                         msg.apiResponse
