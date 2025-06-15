@@ -117,7 +117,7 @@ function showTypingEffect(rawText, htmlText, messageElement, incomingMessageElem
             copyIconElement.classList.remove("hide");
             chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
         }
-    }, 75);
+    }, 20);
 }
 
 // --- Add copy button to code blocks (unchanged) ---
