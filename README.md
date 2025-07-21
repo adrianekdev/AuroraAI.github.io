@@ -1,1 +1,0 @@
-(This is a Polish Version of AuroraAI, switch to the ENG version in my profile) WAŻNE: Za każdym razem jak twoja ostatnia wiadomość zostanie zapisana w histori, będzie ona na stronie glownej. Żeby zrobic nowy czat kliknij ikonę domu, po lewej na górze ekranu.
