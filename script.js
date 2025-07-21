@@ -1,358 +1,200 @@
-const messageForm = document.querySelector(".prompt__form");
-const chatHistoryContainer = document.querySelector(".chats");
-const suggestionItems = document.querySelectorAll(".suggests__item");
-const themeToggleButton = document.getElementById("themeToggler");
-const clearChatButton = document.getElementById("deleteButton");
-const newChatBtn = document.getElementById("newChatBtn");
-const chatHistoryList = document.getElementById("chatHistoryList");
-const homeBtn = document.getElementById("homeBtn");
+// WARNING: PLACING API KEYS DIRECTLY IN FRONTEND CODE IS NOT SECURE FOR PUBLIC PRODUCTION APPLICATIONS.
+// THIS IS FOR EDUCATIONAL AND TESTING PURPOSES ONLY.
 
-let isGeneratingResponse = false;
-let currentUserMessage = null;
+const GEMINI_API_KEY = "AIzaSyCqS3btZWOK26eeDMKD-eVUg9Sy5p4Ph8s"; // *** REPLACE THIS WITH YOUR API KEY ***
+// Using gemini-1.5-pro-latest or gemini-1.5-flash-latest for conversational capabilities
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- Chat state ---
-let chatHistory = JSON.parse(localStorage.getItem("chat-history")) || [];
-let currentChat = JSON.parse(localStorage.getItem("current-chat")) || [];
+// Get DOM elements
+const promptInput = document.getElementById('promptInput');
+const submitBtn = document.getElementById('submitBtn');
+const responseOutput = document.getElementById('responseOutput');
 
-// --- Utility functions ---
-function saveChatHistory() {
-    localStorage.setItem("chat-history", JSON.stringify(chatHistory));
-}
-function saveCurrentChat() {
-    localStorage.setItem("current-chat", JSON.stringify(currentChat));
-}
+// --- CONVERSATION HISTORY ---
+// This array will store the conversation in the format required by Gemini API
+let conversationHistory = [];
 
-// --- Render chat history in sidebar ---
-function renderChatHistory() {
-    chatHistoryList.innerHTML = "";
-    chatHistory.forEach((chat, idx) => {
-        const li = document.createElement("li");
-        li.textContent = chat.title || `Czat ${idx + 1}`;
-        li.onclick = () => loadChat(idx);
-        chatHistoryList.appendChild(li);
+// Function to add a message to history
+function addMessageToHistory(role, text) {
+    conversationHistory.push({
+        role: role,
+        parts: [{ text: text }]
     });
 }
 
-// --- Load a chat from history ---
-function loadChat(idx) {
-    const chat = chatHistory[idx];
-    if (!chat) return;
-    currentChat = [...chat.messages]; // Use a copy to avoid reference issues
-    saveCurrentChat();
-    chatInHistory = true; // <-- Add this line!
-    renderCurrentChat();
+// Function to display messages in the UI
+function displayMessage(role, text) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', role); // Add classes for styling (e.g., 'user', 'model')
+
+    // Check for code blocks using regex
+    const codeBlockRegex = /```(lua|luacode)\n([\s\S]*?)\n```/g;
+    let match;
+    let lastIndex = 0;
+    let processedHtml = '';
+
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        // Add text before the code block
+        processedHtml += text.substring(lastIndex, match.index).replace(/\n/g, '<br>');
+
+        const lang = match[1]; // 'lua' or 'luacode'
+        const code = match[2];
+
+        // Create pre and code elements for highlighting
+        const pre = document.createElement('pre');
+        const codeElement = document.createElement('code');
+        codeElement.classList.add(`language-${lang}`); // Highlight.js language class
+        codeElement.textContent = code;
+
+        // Append to a temporary div to get innerHTML after highlighting
+        const tempDiv = document.createElement('div');
+        tempDiv.appendChild(pre);
+        pre.appendChild(codeElement);
+
+        // Highlight the code
+        hljs.highlightElement(codeElement);
+
+        processedHtml += tempDiv.innerHTML;
+        lastIndex = codeBlockRegex.lastIndex;
+    }
+
+    // Add any remaining text after the last code block
+    processedHtml += text.substring(lastIndex).replace(/\n/g, '<br>');
+
+    messageDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'WaveGPT'}:</strong> ${processedHtml}`;
+    responseOutput.appendChild(messageDiv);
+
+    // Scroll to bottom
+    responseOutput.scrollTop = responseOutput.scrollHeight;
 }
 
-// --- Render current chat in main window ---
-function renderCurrentChat() {
-    chatHistoryContainer.innerHTML = "";
-    if (!currentChat || currentChat.length === 0) return; // <-- Add this line
-    currentChat.forEach(conversation => {
-        // User message
-        const userMessageHtml = `
-            <div class="message__content">
-                <img class="message__avatar" src="assets/profile.png" alt="User avatar">
-                <p class="message__text">${conversation.userMessage}</p>
-            </div>
-        `;
-        const outgoingMessageElement = createChatMessageElement(userMessageHtml, "message--outgoing");
-        chatHistoryContainer.appendChild(outgoingMessageElement);
 
-        // Bot response
-        if (conversation.apiResponse) {
-            const responseText = conversation.apiResponse?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            const parsedApiResponse = marked.parse(responseText);
-            const responseHtml = `
-                <div class="message__content">
-                    <img class="message__avatar" src="assets/gemini.svg" alt="Gemini avatar">
-                    <p class="message__text"></p>
-                    <div class="message__loading-indicator hide">
-                        <div class="message__loading-bar"></div>
-                        <div class="message__loading-bar"></div>
-                        <div class="message__loading-bar"></div>
-                    </div>
-                </div>
-                <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>
-            `;
-            const incomingMessageElement = createChatMessageElement(responseHtml, "message--incoming");
-            chatHistoryContainer.appendChild(incomingMessageElement);
-            const messageTextElement = incomingMessageElement.querySelector(".message__text");
-            showTypingEffect(responseText, parsedApiResponse, messageTextElement, incomingMessageElement, true);
-        }
-    });
-    chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
-}
+// Add event listener for button click
+submitBtn.addEventListener('click', async () => {
+    const userPrompt = promptInput.value.trim();
 
-// --- Create a new chat message element ---
-function createChatMessageElement(htmlContent, ...cssClasses) {
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("message", ...cssClasses);
-    messageElement.innerHTML = htmlContent;
-    return messageElement;
-}
-
-// --- Show typing effect (unchanged) ---
-function showTypingEffect(rawText, htmlText, messageElement, incomingMessageElement, skipEffect = false) {
-    const copyIconElement = incomingMessageElement.querySelector(".message__icon");
-    copyIconElement.classList.add("hide");
-    if (skipEffect) {
-        messageElement.innerHTML = htmlText;
-        hljs.highlightAll();
-        addCopyButtonToCodeBlocks();
-        copyIconElement.classList.remove("hide");
-        isGeneratingResponse = false;
-        chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+    if (!userPrompt) {
+        responseOutput.textContent = 'Please enter a question.';
         return;
     }
-    const wordsArray = rawText.split(' ');
-    let wordIndex = 0;
-    const typingInterval = setInterval(() => {
-        messageElement.innerText += (wordIndex === 0 ? '' : ' ') + wordsArray[wordIndex++];
-        if (wordIndex === wordsArray.length) {
-            clearInterval(typingInterval);
-            isGeneratingResponse = false;
-            messageElement.innerHTML = htmlText;
-            hljs.highlightAll();
-            addCopyButtonToCodeBlocks();
-            copyIconElement.classList.remove("hide");
-            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
-        }
-    }, 20);
-}
 
-// --- Add copy button to code blocks (unchanged) ---
-function addCopyButtonToCodeBlocks() {
-    const codeBlocks = document.querySelectorAll('pre');
-    codeBlocks.forEach((block) => {
-        const codeElement = block.querySelector('code');
-        let language = [...codeElement.classList].find(cls => cls.startsWith('language-'))?.replace('language-', '') || 'Text';
-        const languageLabel = document.createElement('div');
-        languageLabel.innerText = language.charAt(0).toUpperCase() + language.slice(1);
-        languageLabel.classList.add('code__language-label');
-        block.appendChild(languageLabel);
-        const copyButton = document.createElement('button');
-        copyButton.innerHTML = `<i class='bx bx-copy'></i>`;
-        copyButton.classList.add('code__copy-btn');
-        block.appendChild(copyButton);
-        copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(codeElement.innerText).then(() => {
-                copyButton.innerHTML = `<i class='bx bx-check'></i>`;
-                setTimeout(() => copyButton.innerHTML = `<i class='bx bx-copy'></i>`, 2000);
-            }).catch(err => {
-                console.error("Copy failed:", err);
-                alert("Unable to copy text!");
-            });
-        });
-    });
-}
+    // Display user message immediately
+    displayMessage('user', userPrompt);
+    addMessageToHistory('user', userPrompt);
 
-// --- Copy message to clipboard (unchanged) ---
-function copyMessageToClipboard(copyButton) {
-    const messageContent = copyButton.parentElement.querySelector(".message__text").innerText;
-    navigator.clipboard.writeText(messageContent);
-    copyButton.innerHTML = `<i class='bx bx-check'></i>`;
-    setTimeout(() => copyButton.innerHTML = `<i class='bx bx-copy-alt'></i>`, 1000);
-}
+    // Clear the textarea immediately after the button is clicked
+    promptInput.value = '';
 
-// --- Handle sending chat messages ---
-let chatInHistory = false; // Add this at the top of your script
+    // Show generating message
+    const generatingMessageDiv = document.createElement('div');
+    generatingMessageDiv.textContent = 'WaveGPT is generating a response... Please wait...';
+    generatingMessageDiv.style.color = '#ffffff';
+    generatingMessageDiv.classList.add('message', 'generating');
+    responseOutput.appendChild(generatingMessageDiv);
+    responseOutput.scrollTop = responseOutput.scrollHeight;
 
-function handleOutgoingMessage() {
-    currentUserMessage = messageForm.querySelector(".prompt__form-input").value.trim() || currentUserMessage;
-    if (!currentUserMessage || isGeneratingResponse) return;
-    isGeneratingResponse = true;
-    const outgoingMessageHtml = `
-        <div class="message__content">
-            <img class="message__avatar" src="assets/profile.png" alt="User avatar">
-            <p class="message__text"></p>
-        </div>
-    `;
-    const outgoingMessageElement = createChatMessageElement(outgoingMessageHtml, "message--outgoing");
-    outgoingMessageElement.querySelector(".message__text").innerText = currentUserMessage;
-    chatHistoryContainer.appendChild(outgoingMessageElement);
 
-    // --- Add user message to currentChat ---
-    currentChat.push({ userMessage: currentUserMessage });
-    saveCurrentChat();
+    // Define the system instructions for the AI
+    // Adjusted prompt for code blocks and conversational memory
+    const systemInstruction = `You are WaveGPT, an AI assistant for the Roblox executor Wave, created by the SPDM Team and revived by mi7.
+Your sole purpose is to assist with creating Luau scripts.
 
-    // --- Add to history only if this is the first message in a new chat ---
+Guidelines:
+- Only respond to Luau scripting-related queries.
+- Keep responses short and direct.
+- Provide scripts ONLY in \`\`\`lua\`\`\` code blocks.
+- Do not use phrases like ""here's your script"" or similar.
+- Do not explain how to create scripts; directly provide them inside the \`\`\`lua\`\`\` code block.
+- Always use the custom request function for HTTP requests unless explicitly instructed otherwise.
+- Avoid comments in scripts.
+- Humanize the code as much as possible to avoid detection by skidders.
+- Use \`game:GetService(""ServiceName"")\` instead of dot notation for services (e.g., ""Players"", ""ReplicatedStorage"").
+- Do NOT use any "AI: yourmessagehere" type of stuff, as it will break the smoothness of the conversation.
+- If the user says Hi, hello, or something to start the conversation with, respond with:
+  ""Hello! What Luau script do you need assistance with today, user?""`;
 
-    messageForm.reset();
-    document.body.classList.add("hide-header");
-    setTimeout(() => displayLoadingAnimation(), 500);
-}
 
-// --- Show loading animation during API request ---
-function displayLoadingAnimation() {
-    const loadingHtml = `
-        <div class="message__content">
-            <img class="message__avatar" src="assets/gemini.svg" alt="Gemini avatar">
-            <p class="message__text"></p>
-            <div class="message__loading-indicator">
-                <div class="message__loading-bar"></div>
-                <div class="message__loading-bar"></div>
-                <div class="message__loading-bar"></div>
-            </div>
-        </div>
-        <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>
-    `;
-    const loadingMessageElement = createChatMessageElement(loadingHtml, "message--incoming", "message--loading");
-    chatHistoryContainer.appendChild(loadingMessageElement);
-    requestApiResponse(loadingMessageElement);
-}
 
-// Dzieci, nie uzywajcie tego klucza API.... to jest tak na prawde gemini 2.0 flash, bez zadnego billingu. wiec nic z nim nawet nie zrobisz XD. Zaufaj mi, nie trać na to czasu.
-const GOOGLE_API_KEY = "AIzaSyCqS3btZWOK26eeDMKD-eVUg9Sy5p4Ph8s";
-const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-03-25:generateContent?key=${GOOGLE_API_KEY}`;
-
-async function requestApiResponse(incomingMessageElement) {
-    const messageTextElement = incomingMessageElement.querySelector(".message__text");
     try {
-        const response = await fetch(API_REQUEST_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [
-                    { role: "user", parts: [{ text: "Masz na imie Aurora AI. (Asystent - on/go) (Wytrenowany przez Google i zaprogramowany przez Adrianka. (Nie mow ze rozumiesz, po prostu jestes Aurora AI) i mow po polsku."}] },
-                    ...currentChat.flatMap(msg => [
-                        { role: "user", parts: [{ text: msg.userMessage }] },
-                        msg.apiResponse
-                            ? { role: "model", parts: [{ text: msg.apiResponse?.candidates?.[0]?.content?.parts?.[0]?.text || "" }] }
-                            : null
-                    ]).filter(Boolean),
-                    { role: "user", parts: [{ text: currentUserMessage }] }
-                ]
-            }),
+        const requestBody = {
+            contents: conversationHistory, // Send the full conversation history
+            system_instruction: { parts: [{ text: systemInstruction }] } // Add system instruction
+        };
+
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
         });
-        const responseData = await response.json();
-        if (!response.ok) throw new Error(responseData.error.message);
-        const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!responseText) throw new Error("Invalid API response.");
-        const parsedApiResponse = marked.parse(responseText);
-        const rawApiResponse = responseText;
 
-        showTypingEffect(rawApiResponse, parsedApiResponse, messageTextElement, incomingMessageElement);
+        // Remove generating message
+        responseOutput.removeChild(generatingMessageDiv);
 
-        // --- Save bot response to last user message in currentChat ---
-        currentChat[currentChat.length - 1].apiResponse = responseData;
-        saveCurrentChat();
-
-        // --- Add or update history for the current chat ---
-        if (!chatInHistory) {
-            // First exchange: add to history
-            chatHistory.unshift({
-                title: currentChat[0]?.userMessage?.slice(0, 20) || "Nowy czat",
-                messages: [...currentChat]
-            });
-            chatInHistory = true;
-        } else {
-            // Ongoing chat: update the latest history entry
-            chatHistory[0].messages = [...currentChat];
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Gemini API Error:", errorData);
+            displayMessage('model', `Error: ${errorData.error ? errorData.error.message : response.statusText || 'Unknown error.'}`);
+            responseOutput.lastChild.style.color = 'red'; // Set error message color
+            return;
         }
-        saveChatHistory();
-        renderChatHistory();
+
+        const data = await response.json();
+
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+            const generatedText = data.candidates[0].content.parts[0].text;
+            displayMessage('model', generatedText); // Display the model's response
+            addMessageToHistory('model', generatedText); // Add model's response to history
+        } else {
+            displayMessage('model', 'Received an unexpected response from Gemini API. Please try again.');
+            responseOutput.lastChild.style.color = 'orange'; // Set warning message color
+            console.warn("Unexpected response structure:", data);
+        }
 
     } catch (error) {
-        isGeneratingResponse = false;
-        messageTextElement.innerText = error.message;
-        messageTextElement.closest(".message").classList.add("message--error");
-    } finally {
-        incomingMessageElement.classList.remove("message--loading");
-    }
-}
-
-// --- Theme toggle, clear, suggestions, form submit (unchanged) ---
-themeToggleButton.addEventListener('click', () => {
-    const isLightTheme = document.body.classList.toggle("light_mode");
-    localStorage.setItem("themeColor", isLightTheme ? "light_mode" : "dark_mode");
-    const newIconClass = isLightTheme ? "bx bx-moon" : "bx bx-sun";
-    themeToggleButton.querySelector("i").className = newIconClass;
-});
-
-clearChatButton.addEventListener('click', () => {
-    if (confirm("Jesteś pewny żeby usunąć wszystkie historie czatów?")) {
-        localStorage.removeItem("current-chat");
-        localStorage.removeItem("chat-history");
-        chatHistory = [];
-        currentChat = [];
-        currentUserMessage = null; // <-- Reset user message
-        chatHistoryContainer.innerHTML = "";
-        renderChatHistory();
-        location.reload(); // <-- Optional: reload for a full reset
+        // Remove generating message if still present due to network error
+        if (responseOutput.contains(generatingMessageDiv)) {
+             responseOutput.removeChild(generatingMessageDiv);
+        }
+        console.error('An error occurred during API communication:', error);
+        displayMessage('model', `An error occurred: ${error.message}. Check your browser console.`);
+        responseOutput.lastChild.style.color = 'red'; // Set error message color
     }
 });
 
-suggestionItems.forEach(suggestion => {
-    suggestion.addEventListener('click', () => {
-        currentUserMessage = suggestion.querySelector(".suggests__item-text").innerText;
-        handleOutgoingMessage();
-    });
-});
-
-messageForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    handleOutgoingMessage();
-});
-
-// --- On page load ---
-const justStartedNewChat = localStorage.getItem("just-started-new-chat") === "true";
-if (!justStartedNewChat && currentChat && currentChat.length > 0) {
-    renderCurrentChat();
-} else if (justStartedNewChat) {
-    currentChat = [];
-    saveCurrentChat();
-}
-renderChatHistory();
-localStorage.removeItem("just-started-new-chat");
-
-if (homeBtn) {
-    homeBtn.addEventListener('click', () => {
-        currentChat = [];
-        saveCurrentChat();
-        localStorage.setItem("just-started-new-chat", "true");
-        location.reload();
-    });
+// Basic styling for messages (add to style.css if you want)
+/*
+.message {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
 }
 
-function getCurrentChat() {
-    return JSON.parse(localStorage.getItem("current-chat")) || [];
-}
-function getChatHistory() {
-    return JSON.parse(localStorage.getItem("chat-history")) || [];
-}
-
-// --- Settings Modal Logic ---
-const settingsBtn = document.getElementById("settingsBtn"); // Make sure your button has this ID
-const settingsModal = document.getElementById("settingsModal");
-const closeSettingsModal = document.getElementById("closeSettingsModal");
-const toggleThemeBtn = document.getElementById("toggleThemeBtn");
-const clearHistoryBtn = document.getElementById("clearHistoryBtn");
-
-if (settingsBtn && settingsModal) {
-    settingsBtn.addEventListener("click", () => {
-        settingsModal.classList.remove("hide");
-    });
-}
-if (closeSettingsModal) {
-    closeSettingsModal.addEventListener("click", () => {
-        settingsModal.classList.add("hide");
-    });
-}
-if (toggleThemeBtn) {
-    toggleThemeBtn.addEventListener("click", () => {
-        themeToggleButton.click();
-    });
-}
-if (clearHistoryBtn) {
-    clearHistoryBtn.addEventListener("click", () => {
-        clearChatButton.click();
-        settingsModal.classList.add("hide");
-    });
+.message.user {
+    background-color: rgba(0, 123, 255, 0.1);
+    text-align: right;
+    margin-left: auto;
+    max-width: 80%;
 }
 
-// Optional: close modal when clicking outside content
-if (settingsModal) {
-    settingsModal.addEventListener("click", (e) => {
-        if (e.target === settingsModal) settingsModal.classList.add("hide");
-    });
+.message.model {
+    background-color: rgba(255, 255, 255, 0.1);
+    text-align: left;
+    margin-right: auto;
+    max-width: 80%;
 }
+
+pre {
+    background-color: #282c34; // Dark background for code
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto; // Scroll for long lines
+}
+
+code {
+    font-family: 'Fira Code', 'Cascadia Code', monospace; // Monospace font for code
+    font-size: 0.9em;
+    color: #abb2bf; // Light gray for code text
+}
+*/
